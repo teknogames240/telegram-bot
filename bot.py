@@ -9,7 +9,7 @@ from datetime import time
 import json
 
 # توکن از Environment Variable
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = "7256343666:AAGHKZDpAQe3hrAj99hULLJCS-1SZULumMs"
 
 # فایل ذخیره Chat IDها
 CHAT_IDS_FILE = "chat_ids.json"
