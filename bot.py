@@ -1,74 +1,58 @@
-import telegram
-from telegram.ext import Updater, CommandHandler
+import os
 import requests
 from bs4 import BeautifulSoup
-from telegram.ext import JobQueue
-import os
-from datetime import time
 import re
 from urllib.parse import parse_qs, urlparse
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, JobQueue
+from datetime import time
 
-# Telegram Bot Token
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN')
-# Telegram Chat ID
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', 'YOUR_TELEGRAM_CHAT_ID')
+# Token و Chat ID از Environment Variable
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = int(os.environ.get("TELEGRAM_CHAT_ID"))
 
+# تابع گرفتن خبرهای AI
 def get_ai_news():
-    """
-    Searches Google for AI news and returns a list of headlines and links.
-    """
     url = "https://www.google.com/search?q=AI+news"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
+    soup = BeautifulSoup(response.text, "html.parser")
+
     news = []
-    for a in soup.find_all('a', href=re.compile(r'/url\?q=')):
+    for a in soup.find_all("a", href=re.compile(r"/url\?q=")):
         if a.h3:
             title = a.h3.text
-            href = a['href']
+            href = a["href"]
             parsed_url = urlparse(href)
-            actual_link = parse_qs(parsed_url.query).get('q', [None])[0]
-            
+            actual_link = parse_qs(parsed_url.query).get("q", [None])[0]
             if actual_link:
                 news.append(f"{title}\n{actual_link}\n")
     return news
 
-def send_news(context):
-    """
-    Sends the AI news to the specified Telegram chat.
-    """
+# ارسال خبر
+async def send_news(context: ContextTypes.DEFAULT_TYPE):
     news = get_ai_news()
     if news:
         message = "AI News Update:\n\n" + "\n".join(news[:5])
-        context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
     else:
-        context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="No AI news found.")
+        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="No AI news found.")
 
-def start(update, context):
-    """
-    Starts the bot and sends a welcome message.
-    """
-    update.message.reply_text('Welcome to the AI News Bot! I will send you AI news updates periodically.')
+# دستور /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Welcome to the AI News Bot! I will send you AI news updates daily.")
 
+# اجرای ربات
 def main():
-    """
-    Main function to run the bot.
-    """
-    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    
-    # Add the start command handler
-    dp.add_handler(CommandHandler("start", start))
-    
-    # Schedule the news to be sent every day at 09:00
-    job_queue = updater.job_queue
-    job_queue.run_daily(send_news, time=time(hour=9, minute=0))
-    
-    updater.start_polling()
-    updater.idle()
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-if __name__ == '__main__':
+    app.add_handler(CommandHandler("start", start))
+
+    # JobQueue برای ارسال خبر روزانه ساعت 9 صبح
+    job_queue: JobQueue = app.job_queue
+    job_queue.run_daily(send_news, time=time(hour=9, minute=0))
+
+    app.run_polling()
+
+if __name__ == "__main__":
     main()
