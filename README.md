@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 # tellegram-bot
@@ -32,3 +33,6 @@ The bot will send AI news updates every day at 9:00 AM.
 =======
 
 >>>>>>> ad60e38eb275c2edcb288ffb5316b25be4f79673
+=======
+# telegram-bot
+>>>>>>> 9ba50a1deae48295ad04e0e3761a7cd94c2d61cc
