@@ -1,3 +1,9 @@
+
+# tellegram-bot
+
+# telegram-bot
+
+
 # AI News Telegram Bot
 
 This bot fetches the latest AI news from Google and sends it to a specified Telegram chat.
@@ -19,3 +25,4 @@ This bot fetches the latest AI news from Google and sends it to a specified Tele
    ```
 
 The bot will send AI news updates every day at 9:00 AM.
+
