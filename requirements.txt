@@ -1,5 +1,5 @@
-python-telegram-bot== 22.5
+python-telegram-bot==22.5
 beautifulsoup4
 requests
-flask           
-gunicorn        
+flask
+gunicorn
