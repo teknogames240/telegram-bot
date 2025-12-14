@@ -15,6 +15,11 @@ if not TELEGRAM_BOT_TOKEN:
     exit()
 
 RSS_SOURCES = [
+    "https://ai.googleblog.com/feeds/posts/default",
+    "https://openai.com/blog/rss.xml",
+    "https://venturebeat.com/ai/feed/",
+    "https://digiato.com/feed",
+]
 # ... (لیست RSSها)
 
 # تابع start باید با ContextTypes.DEFAULT_TYPE کار کند
