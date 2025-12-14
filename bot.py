@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 # حذف توکن هاردکد شده و خواندن از Environment
 # TOKEN = "7256343666:AAGHKZDpAQe3hrAj99hULLJCS-1SZULumMs" 
 TELEGRAM_BOT_TOKEN = os.environ.get() 
-if not TELEGRAM_BOT_TOKEN
+if not TELEGRAM_BOT_TOKEN:
     print("FATAL: TELEGRAM_BOT_TOKEN environment variable not set.")
     exit()
 
