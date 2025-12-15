@@ -1,14 +1,15 @@
-# app.py
 import os
 from flask import Flask, request, abort
 from telegram.ext import Application
-from bot import init_app # فرض می‌کنیم تابع main در bot.py را به init_app تغییر می‌دهید
+from bot import init_app # فراخوانی تابع راه‌اندازی ربات
 
 # توکن و URLها از متغیرهای محیطی
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 URL = os.environ.get("RENDER_EXTERNAL_URL") 
-PORT = int(os.environ.get("PORT", "5000"))
+# پورت باید 10000 باشد
+PORT = int(os.environ.get("PORT", "10000")) 
 
+# این چک کردن باعث توقف Deploy می‌شد، اما اگر توکن در Render تنظیم شده باشد، اکنون مشکلی نیست.
 if not TOKEN or not URL:
     raise ValueError("TELEGRAM_BOT_TOKEN and RENDER_EXTERNAL_URL must be set.")
 
@@ -17,27 +18,31 @@ app = Flask(__name__)
 # ۱. راه‌اندازی ربات
 application = init_app(TOKEN) # اجرای JobQueue و Handlers
 
-# ۲. تنظیم Webhook
+# ۲. تعریف روت‌های Flask
 @app.route('/', methods=['GET'])
 def home():
+    """روت اصلی برای چک کردن وضعیت سرویس توسط Render"""
     return "AI News Bot is running!", 200
 
 @app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
     """هندل کردن درخواست‌های Webhook از تلگرام"""
     if request.method == "POST":
-        update = request.get_json(force=True)
+        # دریافت آپدیت JSON از تلگرام
+        update_json = request.get_json(force=True)
+        
         # پردازش آپدیت توسط Application
-        application.update_queue.put(update)
+        # اینجا باید مطمئن شویم که داده JSON به درستی به شیء Update تبدیل شود.
+        try:
+            from telegram import Update
+            update = Update.de_json(update_json, application.bot)
+            application.process_update(update)
+        except Exception as e:
+            # اگر خطایی در پردازش رخ داد، آن را لاگ کنید
+            print(f"Error processing update: {e}")
+            
         return "ok"
     return abort(400)
-
-# ۳. تنظیم Webhook در تلگرام هنگام راه‌اندازی
-def set_webhook():
-    webhook_url = f"{URL}/{TOKEN}"
-    print(f"Setting webhook to: {webhook_url}")
-    # Application.set_webhook() را به صورت دستی یا هنگام ساخت سرویس اجرا کنید.
-    # به دلیل اینکه Render آدرس را تغییر می‌دهد، بهتر است آن را در محیط Render اجرا کنید.
 
 if __name__ == '__main__':
     # این فقط برای تست لوکال است
