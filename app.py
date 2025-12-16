@@ -1,49 +1,33 @@
 import os
-from flask import Flask, request, abort
+from flask import Flask, request
+from telegram import Update
 from telegram.ext import Application
-from bot import init_app # فراخوانی تابع راه‌اندازی ربات
+from bot import build_application, set_webhook
 
-# توکن و URLها از متغیرهای محیطی
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-URL = os.environ.get("RENDER_EXTERNAL_URL") 
-# پورت باید 10000 باشد
-PORT = int(os.environ.get("PORT", "10000")) 
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
+PORT = int(os.environ.get("PORT", 10000))
 
-# این چک کردن باعث توقف Deploy می‌شد، اما اگر توکن در Render تنظیم شده باشد، اکنون مشکلی نیست.
-if not TOKEN or not URL:
-    raise ValueError("TELEGRAM_BOT_TOKEN and RENDER_EXTERNAL_URL must be set.")
+if not TOKEN or not RENDER_URL:
+    raise RuntimeError("Environment variables not set")
 
 app = Flask(__name__)
 
-# ۱. راه‌اندازی ربات
-application = init_app(TOKEN) # اجرای JobQueue و Handlers
+# ساخت Application تلگرام
+application: Application = build_application(TOKEN)
 
-# ۲. تعریف روت‌های Flask
-@app.route('/', methods=['GET'])
+# ست کردن Webhook هنگام بالا آمدن
+set_webhook(TOKEN, f"{RENDER_URL}/{TOKEN}")
+
+@app.route("/", methods=["GET"])
 def home():
-    """روت اصلی برای چک کردن وضعیت سرویس توسط Render"""
-    return "AI News Bot is running!", 200
+    return "Telegram bot is running ✅", 200
 
-@app.route(f'/{TOKEN}', methods=['POST'])
+@app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
-    """هندل کردن درخواست‌های Webhook از تلگرام"""
-    if request.method == "POST":
-        # دریافت آپدیت JSON از تلگرام
-        update_json = request.get_json(force=True)
-        
-        # پردازش آپدیت توسط Application
-        # اینجا باید مطمئن شویم که داده JSON به درستی به شیء Update تبدیل شود.
-        try:
-            from telegram import Update
-            update = Update.de_json(update_json, application.bot)
-            application.process_update(update)
-        except Exception as e:
-            # اگر خطایی در پردازش رخ داد، آن را لاگ کنید
-            print(f"Error processing update: {e}")
-            
-        return "ok"
-    return abort(400)
+    update = Update.de_json(request.get_json(force=True), application.bot)
+    application.process_update(update)
+    return "ok", 200
 
-if __name__ == '__main__':
-    # این فقط برای تست لوکال است
-    app.run(debug=True, port=PORT)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=PORT)
