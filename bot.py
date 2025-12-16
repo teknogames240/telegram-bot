@@ -1,53 +1,84 @@
 import feedparser
-import logging
+import json
 import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, JobQueue
+import logging
 from datetime import time
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    JobQueue
+)
 
 logging.basicConfig(level=logging.INFO)
 
-# خواندن توکن از محیط (دیگر هاردکد نیست)
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-# این چک کردن دیگر لازم نیست چون در app.py انجام می‌شود، اما برای اطمینان نگه می‌داریم
-if not TELEGRAM_BOT_TOKEN:
-    print("FATAL: TELEGRAM_BOT_TOKEN environment variable not set.")
-    exit()
+CHAT_FILE = "chats.json"
 
-RSS_SOURCES = [
+RSS_FEEDS = [
     "https://ai.googleblog.com/feeds/posts/default",
     "https://openai.com/blog/rss.xml",
     "https://venturebeat.com/ai/feed/",
-    "https://digiato.com/feed",
 ]
 
-# توابع باید async باشند
+# ---------- ابزار ----------
+def load_chats():
+    if not os.path.exists(CHAT_FILE):
+        return []
+    with open(CHAT_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_chat(chat_id):
+    chats = load_chats()
+    if chat_id not in chats:
+        chats.append(chat_id)
+        with open(CHAT_FILE, "w", encoding="utf-8") as f:
+            json.dump(chats, f)
+
+def get_news():
+    messages = []
+    for url in RSS_FEEDS:
+        feed = feedparser.parse(url)
+        for entry in feed.entries[:2]:
+            messages.append(f"📰 {entry.title}\n{entry.link}")
+    return "\n\n".join(messages)
+
+# ---------- Handlers ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """جواب دادن به فرمان /start"""
-    message = "به ربات خبر هوش مصنوعی خوش آمدید! با من می‌توانید جدیدترین اخبار را دریافت کنید."
-    await update.message.reply_text(message) # استفاده از await ضروری است
+    chat_id = update.effective_chat.id
+    save_chat(chat_id)
 
-# توابع باید async باشند
-async def send_news(context: ContextTypes.DEFAULT_TYPE):
-    """ارسال اخبار روزانه به چت‌ها (نیاز به منطق کامل)"""
-    # در اینجا باید منطق فیدخوانی و send_message به چت‌های ذخیره شده قرار گیرد.
-    # مثال:
-    # news_content = get_ai_news()
-    # await context.bot.send_message(chat_id=YOUR_CHAT_ID, text=news_content)
-    logging.info("Running daily news job.")
-    pass
+    await update.message.reply_text(
+        "✅ ربات فعال شد!\n"
+        "اخبار هوش مصنوعی هر روز ساعت ۹ صبح ارسال می‌شود."
+    )
 
+async def send_daily_news(context: ContextTypes.DEFAULT_TYPE):
+    news = get_news()
+    chats = load_chats()
 
-def init_app(token: str) -> Application:
-    """راه‌اندازی Application برای محیط Webhook"""
+    for chat_id in chats:
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=news)
+        except Exception as e:
+            logging.error(f"Send failed {chat_id}: {e}")
+
+# ---------- Application ----------
+def build_application(token: str) -> Application:
     app = Application.builder().token(token).build()
 
-    # اضافه کردن فرمان /start
     app.add_handler(CommandHandler("start", start))
 
-    # JobQueue برای ارسال خبر روزانه ساعت 9 صبح
     job_queue: JobQueue = app.job_queue
-    # دقت کنید: اگر تابع send_news منطق کامل نداشته باشد، این بخش فقط لاگ می‌گیرد.
-    job_queue.run_daily(send_news, time=time(hour=9, minute=0, second=0))
+    job_queue.run_daily(
+        send_daily_news,
+        time=time(hour=9, minute=0)
+    )
 
     return app
+
+def set_webhook(token: str, url: str):
+    import requests
+    hook_url = f"https://api.telegram.org/bot{token}/setWebhook"
+    r = requests.post(hook_url, data={"url": url})
+    logging.info(f"Webhook set: {r.text}")
